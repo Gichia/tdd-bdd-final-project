@@ -27,7 +27,7 @@ import os
 import logging
 import unittest
 from decimal import Decimal
-from service.models import Product, Category, db
+from service.models import Product, Category, db, DataValidationError
 from service import app
 from tests.factories import ProductFactory
 
@@ -189,3 +189,53 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(found.count(), count)
         for product in found:
             self.assertEqual(product.category, category)
+
+    def test_find_by_price(self):
+        """It should Find Products by Price"""
+        products = ProductFactory.create_batch(10)
+        for product in products:
+            product.create()
+        price = products[0].price
+        count = len([product for product in products if product.price == price])
+        found = Product.find_by_price(str(price))
+        self.assertEqual(found.count(), count)
+        for product in found:
+            self.assertEqual(product.price, price)
+
+    def test_invalid_id_on_update(self):
+        """It should Raise DataValidationError"""
+        product = ProductFactory()
+        product.id = None
+        product.create()
+        self.assertIsNotNone(product.id)
+        # Change it an save it
+        product.id = None
+        self.assertRaises(DataValidationError, product.update)
+
+    def test_invalid_available_field(self):
+        """Test invalid available field"""
+        product = ProductFactory()
+        product.id = None
+        product.create()
+        self.assertIsNotNone(product.id)
+
+        with self.assertRaises(DataValidationError):
+            # Change the available field to str
+            data = product.serialize()
+            data['available'] = 'available'
+
+            product.deserialize(data)
+
+    def test_invalid_product(self):
+        """Test invalid product dictionary"""
+        product = ProductFactory()
+        product.id = None
+        product.create()
+        self.assertIsNotNone(product.id)
+
+        with self.assertRaises(DataValidationError):
+            # Change the category field to contain bad category
+            data = product.serialize()
+            data['category'] = 'category'
+
+            product.deserialize(data)
